@@ -32,23 +32,35 @@ This repository contains a Python script that allows you to set lyrics for your 
 
 3. Place your music files in the desired directory.
 
-4. Open the `main.py` file and modify the `DIRECTORY_PATH` variable to specify the directory path where your music files are located.
+4. Open the terminal and navigate to the directory where the script is located.
 
-5. Choose the processing method:
+5. Run the script with the desired options:
 
-   - Sequential Processing (Default):
-     - Uncomment the line `set(paths)` in `main.py`.
-     - Comment out the line `set_concurrent(paths)` in `main.py`.
-   
-   - Concurrent Processing:
-     - Uncomment the line `set_concurrent(paths)` in `main.py`.
-     - Comment out the line `set(paths)` in `main.py`.
+- To set lyrics sequentially (default):
 
-6. Run the script:
+  ```
+  python main.py -directory ./music
+  ```
 
-   ```
-   python main.py
-   ```
+- To set lyrics concurrently:
+
+  ```
+  python main.py -directory ./music -concurrent True
+  ```
+
+- To perform a dry run and see the list of files that will be processed:
+
+  ```
+  python main.py -directory ./music -dry_run True
+  ```
+
+- To fetch lyrics for a single song:
+
+  ```
+  python main.py -directory ./music -fetch_manual "Song Title"
+  ```
+
+**Note:** Replace `./music` with the path to your music directory and `"Song Title"` with the title of the song for manual fetching.
 
    The script will fetch the lyrics for each music file and embed them into the files using ID3 tags. Progress will be displayed using a progress bar.
 
@@ -61,11 +73,11 @@ The script offers two processing methods to optimize performance:
   - Processes the files one by one in a sequential manner.
   - Enabled by default in the script.
 
-- Concurrent Processing:
+- Concurrent Processing (BETA!!):
   - Recommended for a larger number of music files.
   - Utilizes parallel processing to speed up execution time.
   - To enable concurrent processing, follow the instructions in the "Usage" section.
-  - Note that concurrent processing requires the `music_tag` library to work correctly in a concurrent/threaded environment.
+  - **Note** that concurrent processing requires the `music_tag` library to work correctly in a concurrent/threaded environment which I'm working on but this will remain in experimental state until then.
 
 Choose the appropriate processing method based on your requirements and the number of music files you have.
 
@@ -75,7 +87,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Acknowledgements
 
-- [music_tag](https://github.com/python-music-tag/python-music-tag) library for ID3 tag handling.
-- [Some Random API](https://github.com/SamuelTavares2020/some-random-api) for lyrics retrieval.
+- [music_tag](https://github.com/KristoforMaynard/music-tag) library for ID3 tag handling.
+- [Some Random API](https://some-random-api.com/) for lyrics retrieval.
 
 Feel free to contribute to the project and make it even better! If you encounter any issues or have any suggestions, please open an issue on the repository.
