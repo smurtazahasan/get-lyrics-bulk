@@ -77,8 +77,6 @@ def remove_lyrics(paths):
     if 'lyrics' in f:
         f['lyrics'] = ""
         f.save()
-    #print(f['title'])
-    #print(f['lyrics'])
 
 def filter_m4a_paths(file_paths):
     m4a_paths = [path for path in file_paths if os.path.splitext(path)[1] == ".m4a"]
@@ -86,27 +84,4 @@ def filter_m4a_paths(file_paths):
 
 paths = get_files_in_directory("./")
 paths = filter_m4a_paths(paths)
-
-#print(paths)
-#print(len(paths))
-def count(paths):
-  count = 0
-  for i in paths:
-    f = music_tag.load_file(i)
-    if len(f['lyrics']) <= 20: count += 1
-
-  return count
-
-#print("TOTAL Number of music files with lyrics less than 20 characters long")
-#print(count(paths))
-
-#remove_lyrics(paths)
-#check(paths)
-
-#path = ['./J. Cole/2014 Forest Hills Drive (2014) [EA]/Fire Squad (Explicit).m4a']
-
-#remove_lyrics(paths)
-print(count(paths))
-#print(len(paths))
-#set(paths)
-#count(paths)
+set(paths)
