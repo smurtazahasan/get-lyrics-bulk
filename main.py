@@ -10,6 +10,10 @@ import time
 from datetime import datetime
 import os, sys, subprocess, shlex, re
 from subprocess import call
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+import config
+
 
 ### Helper Functions ###
 
@@ -25,6 +29,28 @@ def get_m4a_files_in_directory(directory):
             if os.path.splitext(file_path)[1] in [".m4a", ".mp3", ".flac", ".wav"]:
                 file_paths.append(file_path)
     return file_paths
+
+
+# Get popularity for the song
+def search_track_popularity(artist_name, track_title):
+    # Set up Spotify API client credentials
+    client_credentials_manager = SpotifyClientCredentials(
+        client_id=config.CLIENT_ID, client_secret=config.CLIENT_SECRET
+    )
+    sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+
+    # Search for the track
+    query = f"track:{track_title} artist:{artist_name}"
+    results = sp.search(query, type="track", limit=1)
+    print(results)
+
+    # Get the popularity of the track
+    if results["tracks"]["items"]:
+        track = results["tracks"]["items"][0]
+        popularity = track["popularity"]
+        return popularity
+    else:
+        return None
 
 
 # Formats sample rate
@@ -162,14 +188,27 @@ def set_concurrent(paths):
     progress_bar.close()
 
 
-def main(directory, concurrent, dry_run, fetch_manual):
+def main(directory, concurrent, dry_run, fetch_manual, popularity):
     # Get file paths
     file_paths = get_m4a_files_in_directory(directory)
 
+    # Get the popularity of a song
+    if len(popularity) > 0:
+        print("Getting popularity for:", popularity)
+        artist_name, track_title = popularity.split(", ")
+        print(artist_name, track_title)
+        # Clean and encode the artist name and track title for the API query
+        artist_name = urllib.parse.quote(artist_name)
+        track_title = urllib.parse.quote(track_title)
+
+        print(search_track_popularity(artist_name, track_title))
+
+    # Fetch lyrics for a specific song
     if len(fetch_manual) > 0:
         print(fetch(fetch_manual))
         return
 
+    # Print the files that will be changed
     if dry_run:
         print("Files that will be processed:")
         for path in file_paths:
@@ -211,9 +250,21 @@ if __name__ == "__main__":
         default="",
         help="Fetch lyrics for a single song (insert song title)",
     )
+    parser.add_argument(
+        "-popularity",
+        type=str,
+        default="",
+        help="Get the popularity of a song with title and artist (ex. 'Drake, Deep Pockets')",
+    )
 
     # Parse the command-line arguments
     args = parser.parse_args()
 
     # Call the main function with the provided directory and identifier
-    main(args.directory, args.concurrent, args.dry_run, args.fetch_manual)
+    main(
+        args.directory,
+        args.concurrent,
+        args.dry_run,
+        args.fetch_manual,
+        args.popularity,
+    )
