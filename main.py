@@ -10,6 +10,9 @@ import time
 from datetime import datetime
 import os, sys, subprocess, shlex, re
 from subprocess import call
+import re
+import random
+from threading import Thread
 
 ### Helper Functions ###
 
@@ -112,60 +115,91 @@ def fetch(title):
                 lyrics=content["lyrics"],
                 dt_string=datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
             )
-        else:
-            print("Invalid response format from the API.")
     else:
-        print("Error occurred while fetching lyrics. Status code:", resp.status_code)
-
-    return ""  # Return empty string if lyrics fetching failed or response format is invalid
+        return ""  # Return empty string if lyrics fetching failed or response format is invalid
 
 
 # Sets lyrics for all files in directory
 # Input: ['./music/drake.m4a', './music/Pain 1993 (Explicit).mp3'...]
 def set(paths):
     progress_bar = tqdm(total=len(paths), desc="Processing", unit="file(s)")
+    missed_songs = []
+    missed_songs_count = 0
 
     for path in paths:
         # Load song's ID3 tags and probe file for audio information
         f = music_tag.load_file(path)
         probe = probe_file(path)
+        
+        if "lyrics" in f:
+            if len(str(f["lyrics"])) > 10:
+                print("Lyrics already exist for " + path)
+                progress_bar.update(1)
+                continue
+        
+        # Prepare argument for API call
+        artist = str(f["artist"])
+        artist_match = re.search(r"(.*?)\s(?:feat(?:\.|uring)?|&|with|,|and|ft\.|w\.)", artist, re.IGNORECASE)
+        if artist_match:
+            artist = artist_match.group(1).strip()
+        
+        # Title and Artist
+        lyrics = fetch(str(f["title"]) + " " + artist)
+        if lyrics == "":
+            # Track the missed song
+            missed_songs.append(path)
+            
+            # Save empty tag
+            f["lyrics"] = ""
+            f.save()
+            continue
+        else:
+            # Add additional information to lyrics
+            additional_info = "\n\nBitrate: {bitrate}\nChannels: {channels}\nSample Rate: {samplerate}".format(
+                bitrate=probe["bitrate"],
+                channels=probe["channels"],
+                samplerate=probe["sample_rate"],
+            )
 
-        lyrics = fetch(str(f["title"]))  # Fetch lyrics from API
-        additional_info = "\n\nBitrate: {bitrate}\nChannels: {channels}\nSample Rate: {samplerate}".format(
-            bitrate=probe["bitrate"],
-            channels=probe["channels"],
-            samplerate=probe["sample_rate"],
-        )
-
-        f["lyrics"] += additional_info
-        f.save()
+            f["lyrics"] = lyrics + additional_info
+            f.save()
+            
         progress_bar.update(1)
 
     progress_bar.close()
+    return missed_songs, missed_songs_count
 
 
 # Concurrently sets lyrics for all files in directory
 # Issues: MP3_TAG is not thread safe
 def set_concurrent(paths):
-    progress_bar = tqdm(total=len(paths), desc="Processing", unit="file(s)")
+    # Split list of file paths into 
+    path_1, path_2 = paths[: len(paths) // 2], paths[len(paths) // 2 :]
+    
+    # Run operation in two threads
+    Thread(target=set, args=(path_1,)).start()
+    Thread(target=set, args=(path_2,)).start()
+    
 
-    def process_file(path):
-        file = music_tag.load_file(path)
-        if len(file["lyrics"]) < 20:
-            file["lyrics"] = fetch(str(file["title"]))
-        file.save()
-        progress_bar.update(1)
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        executor.map(process_file, paths)
-
-    progress_bar.close()
-
-
-def main(directory, concurrent, dry_run, fetch_manual):
+# Remove lyrics from Directory
+def remove_lyrics_from_files(paths):
+    for path in paths:
+        # Load song's ID3 tags
+        f = music_tag.load_file(path)
+        f["lyrics"] = ""
+        f.save()
+        print(path)
+    
+    
+def main(directory, concurrent, dry_run, fetch_manual, remove_lyrics):
     # Get file paths
     file_paths = get_m4a_files_in_directory(directory)
-
+    
+    # Remove lyrics from files
+    if remove_lyrics:
+        remove_lyrics_from_files(file_paths)
+        return
+    
     if len(fetch_manual) > 0:
         print(fetch(fetch_manual))
         return
@@ -179,7 +213,10 @@ def main(directory, concurrent, dry_run, fetch_manual):
     if concurrent:
         set_concurrent(file_paths)
     else:
-        set(file_paths)
+        missed_songs, missed_songs_count = set(file_paths)
+        for line in missed_songs:
+            print(line)
+        print("Missed Songs Total: ", missed_songs_count)
 
 
 if __name__ == "__main__":
@@ -211,9 +248,15 @@ if __name__ == "__main__":
         default="",
         help="Fetch lyrics for a single song (insert song title)",
     )
+    parser.add_argument(
+        "-remove_lyrics",
+        type=bool,
+        default=False,
+        help="Remove lyrics for entire directory",
+    )
 
     # Parse the command-line arguments
     args = parser.parse_args()
 
     # Call the main function with the provided directory and identifier
-    main(args.directory, args.concurrent, args.dry_run, args.fetch_manual)
+    main(args.directory, args.concurrent, args.dry_run, args.fetch_manual, args.remove_lyrics)
